@@ -1,0 +1,94 @@
+{{- if .Values.mysql.enabled }}
+---
+# PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-mysql-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.mysql.storage.size | default "5Gi" }}
+  storageClassName: local-path-retain
+
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-mysql
+spec:
+  type: LoadBalancer
+  selector:
+    app: {{ .Release.Name }}-mysql
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
+
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-mysql
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-mysql
+    spec:
+      containers:
+        - name: mysql
+          image: {{ .Values.mysql.image | default "mysql:8.0" }}
+          args:
+            - --character-set-server={{ .Values.mysql.config.characterSet }}
+            - --collation-server={{ .Values.mysql.config.collation }}
+            - --default-authentication-plugin=mysql_native_password
+            - --bind-address=0.0.0.0
+            - --max-connections={{ .Values.mysql.config.maxConnections }}
+            - --innodb-buffer-pool-size={{ .Values.mysql.config.bufferPoolSize }}
+            - --innodb-flush-method=O_DIRECT
+            - --innodb-file-per-table=1
+            - --innodb-flush-log-at-trx-commit=2
+            - --skip-host-cache
+            - --skip-name-resolve
+          env:
+            - name: MYSQL_DATABASE
+              value: {{ .Values.mysql.database }}
+            - name: MYSQL_USER
+              value: {{ .Values.mysql.user }}
+            - name: MYSQL_PASSWORD
+              value: {{ .Values.mysql.password }}
+            - name: MYSQL_ROOT_PASSWORD
+              value: {{ .Values.mysql.rootPassword }}
+          resources: # Add resource limits
+            {{- toYaml .Values.mysql.resources | nindent 12 }}
+          livenessProbe:
+            exec:
+              command: [ "mysqladmin", "ping", "-h", "localhost" ]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command: [ "mysqladmin", "ping", "-h", "localhost" ]
+            initialDelaySeconds: 5
+            periodSeconds: 2
+            timeoutSeconds: 1
+          ports:
+            - containerPort: 3306
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: mysql-data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-mysql-data
+{{- end }}

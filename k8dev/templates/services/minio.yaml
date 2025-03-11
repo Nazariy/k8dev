@@ -1,0 +1,168 @@
+{{- if .Values.minio.enabled }}
+---
+# PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-minio-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.minio.persistence.size }}
+  storageClassName: {{ .Values.minio.persistence.storageClass }}
+
+---
+# ConfigMap for initialization scripts
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-minio-init
+data:
+  init.sh: |
+    #!/bin/sh
+    # Create buckets
+    {{- range .Values.minio.buckets }}
+    mc mb "local/{{ .name }}" --ignore-existing
+    {{- if eq .policy "public" }}
+    mc anonymous set download "local/{{ .name }}"
+    {{- end }}
+    {{- end }}
+
+    # Create policies
+    {{- range .Values.minio.policies }}
+    cat > /tmp/{{ .name }}.json << EOF
+    {
+      "Version": "2012-10-17",
+      "Statement": {{ .statements | toJson }}
+    }
+    EOF
+    mc admin policy create local {{ .name }} /tmp/{{ .name }}.json
+    {{- end }}
+
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-minio
+spec:
+  selector:
+    app: {{ .Release.Name }}-minio
+  ports:
+    - name: api
+      protocol: TCP
+      port: {{ .Values.minio.port }}
+      targetPort: api
+    - name: console
+      protocol: TCP
+      port: {{ .Values.minio.consolePort }}
+      targetPort: console
+
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-minio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-minio
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-minio
+    spec:
+      initContainers:
+        - name: init-minio
+          image: minio/mc:RELEASE.2024-01-19T22-01-50Z
+          command: ["/bin/sh", "/scripts/init.sh"]
+          env:
+            - name: MINIO_ROOT_USER
+              value: {{ .Values.minio.rootUser }}
+            - name: MINIO_ROOT_PASSWORD
+              value: {{ .Values.minio.rootPassword }}
+          volumeMounts:
+            - name: init-script
+              mountPath: /scripts
+      containers:
+        - name: minio
+          image: {{ .Values.minio.image }}
+          command:
+            - "/usr/bin/docker-entrypoint.sh"
+            - "server"
+            - "/data"
+            - "--console-address"
+            - ":{{ .Values.minio.consolePort }}"
+          env:
+            - name: MINIO_ROOT_USER
+              value: {{ .Values.minio.rootUser }}
+            - name: MINIO_ROOT_PASSWORD
+              value: {{ .Values.minio.rootPassword }}
+          ports:
+            - containerPort: {{ .Values.minio.port }}
+              name: api
+            - containerPort: {{ .Values.minio.consolePort }}
+              name: console
+          resources:
+            {{- toYaml .Values.minio.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: api
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: api
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-minio-data
+        - name: init-script
+          configMap:
+            name: {{ .Release.Name }}-minio-init
+            defaultMode: 0755
+
+---
+# Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-minio
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: s3.{{ .Values.domain }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-minio
+                port:
+                  number: {{ .Values.minio.port }}
+    - host: s3-console.{{ .Values.domain }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-minio
+                port:
+                  number: {{ .Values.minio.consolePort }}
+{{- end }}

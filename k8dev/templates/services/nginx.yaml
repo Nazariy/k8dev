@@ -1,0 +1,101 @@
+{{- define "nginx.location" -}}
+location {{ .path }} {
+{{ .rules | indent 2 }}
+}
+{{- end -}}
+
+{{- if .Values.nginx.enabled }}
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-nginx
+spec:
+  selector:
+    app: {{ .Release.Name }}-nginx
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+
+---
+# ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-nginx-config
+data:
+  default.conf: |-
+    server {
+        listen 80;
+        server_name {{ .Values.domain }};
+        root /var/www/html;
+        index index.php;
+
+        {{- with .Values.nginx.config }}
+        {{- if .locations }}
+        {{- range .locations }}
+        {{- include "nginx.location" . | indent 8 }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+
+        location ~ \.php$ {
+            fastcgi_split_path_info ^(.+\.php)(/.+)$;
+            fastcgi_pass {{ $.Release.Name }}-php:9000;
+            fastcgi_index index.php;
+            include fastcgi_params;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            fastcgi_param PATH_INFO $fastcgi_path_info;
+        }
+    }
+
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-nginx
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-nginx
+    spec:
+      containers:
+        - name: nginx
+          image: {{ .Values.nginx.image }}
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+            {{- with .Values.php }}
+            {{- if .volumes }}
+            {{- range .volumes }}
+            - name: {{ .name | default "app-source" }}
+              mountPath: {{ .target }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: {{ .Release.Name }}-nginx-config
+        {{- with .Values.php }}
+        {{- if .volumes }}
+        {{- range .volumes }}
+        - name: {{ .name | default "app-source" }}
+          hostPath:
+            path: {{ .source }}
+            type: Directory
+        {{- end }}
+        {{- end }}
+        {{- end }}
+{{- end }}

@@ -1,0 +1,13 @@
+.idea
+*.iml
+out
+gen
+.DS_Store
+.env
+k8dev/charts
+k8dev/Chart.lock
+k8dev/.hosts
+www
+!www/.gitkeep
+hosts
+!hosts/.gitkeep

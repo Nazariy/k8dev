@@ -1,0 +1,46 @@
+{{- if .Values.mariadb.enabled }}
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-mariadb
+spec:
+  selector:
+    app: {{ .Release.Name }}-mariadb
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
+
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-mariadb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-mariadb
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-mariadb
+    spec:
+      containers:
+        - name: mariadb
+          image: "mariadb:{{ .Values.mariadb.version }}"
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "{{ .Values.mariadb.rootPassword }}"
+            - name: MYSQL_DATABASE
+              value: "{{ .Values.mariadb.database }}"
+            - name: MYSQL_USER
+              value: "{{ .Values.mariadb.user }}"
+            - name: MYSQL_PASSWORD
+              value: "{{ .Values.mariadb.password }}"
+          ports:
+            - containerPort: 3306
+{{- end }}

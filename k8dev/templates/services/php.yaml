@@ -1,0 +1,103 @@
+{{- if .Values.php.enabled }}
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-php
+spec:
+  selector:
+    app: {{ .Release.Name }}-php
+  ports:
+    - protocol: TCP
+      port: 9000
+      targetPort: 9000
+
+---
+# ConfigMap for PHP configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-php-config
+data:
+  php.ini: |-
+    memory_limit = {{ .Values.php.config.memoryLimit | default "128M" }}
+    max_execution_time = {{ .Values.php.config.maxExecutionTime | default "30" }}
+    upload_max_filesize = {{ .Values.php.config.uploadMaxFilesize | default "2M" }}
+    post_max_size = {{ .Values.php.config.postMaxSize | default "8M" }}
+    {{- if .Values.php.xdebug.enabled }}
+    [xdebug]
+    xdebug.mode = {{ .Values.php.xdebug.mode | default "debug" }}
+    xdebug.client_host = {{ .Values.php.xdebug.clientHost | default "host.k8s.internal" }}
+    xdebug.client_port = {{ .Values.php.xdebug.clientPort | default "9003" }}
+    xdebug.idekey = {{ .Values.php.xdebug.idekey | default "PHPSTORM" }}
+    xdebug.start_with_request = {{ .Values.php.xdebug.startWithRequest | default "yes" }}
+    {{- end }}
+
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-php
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-php
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-php
+    spec:
+      containers:
+        - name: php
+          image: {{ .Values.php.image }}
+          env:
+            - name: PHP_FPM_PM
+              value: {{ .Values.php.fpm.pm | default "dynamic" }}
+            - name: PHP_FPM_PM_MAX_CHILDREN
+              value: {{ .Values.php.fpm.maxChildren | default "5" | quote }}
+            - name: PHP_FPM_PM_START_SERVERS
+              value: {{ .Values.php.fpm.startServers | default "2" | quote }}
+            - name: PHP_FPM_PM_MIN_SPARE_SERVERS
+              value: {{ .Values.php.fpm.minSpareServers | default "1" | quote }}
+            - name: PHP_FPM_PM_MAX_SPARE_SERVERS
+              value: {{ .Values.php.fpm.maxSpareServers | default "3" | quote }}
+            {{- if .Values.php.xdebug.enabled }}
+            - name: XDEBUG_MODE
+              value: {{ .Values.php.xdebug.mode | default "debug" }}
+            - name: XDEBUG_CLIENT_HOST
+              value: {{ .Values.php.xdebug.clientHost | default "host.k8s.internal" }}
+            - name: XDEBUG_CLIENT_PORT
+              value: {{ .Values.php.xdebug.clientPort | default "9003" | quote }}
+            - name: XDEBUG_IDEKEY
+              value: {{ .Values.php.xdebug.idekey | default "PHPSTORM" }}
+            - name: XDEBUG_START_WITH_REQUEST
+              value: {{ .Values.php.xdebug.startWithRequest | default "yes" }}
+            {{- end }}
+          ports:
+            - containerPort: 9000
+          volumeMounts:
+            - name: php-config
+              mountPath: /usr/local/etc/php/conf.d/custom.ini
+              subPath: php.ini
+            {{- if .Values.php.volumes }}
+            {{- range .Values.php.volumes }}
+            - name: {{ .name | default "app-source" }}
+              mountPath: {{ .target }}
+            {{- end }}
+            {{- end }}
+      volumes:
+        - name: php-config
+          configMap:
+            name: {{ .Release.Name }}-php-config
+        {{- if .Values.php.volumes }}
+        {{- range .Values.php.volumes }}
+        - name: {{ .name | default "app-source" }}
+          hostPath:
+            path: {{ .source }}
+            type: Directory
+        {{- end }}
+        {{- end }}
+{{- end }}

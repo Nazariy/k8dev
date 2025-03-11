@@ -1,0 +1,88 @@
+{{- if .Values.nodejs.enabled }}
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-nodejs
+spec:
+  selector:
+    app: {{ .Release.Name }}-nodejs
+  ports:
+    - protocol: TCP
+      port: {{ .Values.nodejs.port }}
+      targetPort: {{ .Values.nodejs.port }}
+
+---
+# Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-nodejs
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: "node-{{ .Values.domain }}"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-nodejs
+                port:
+                  number: {{ .Values.nodejs.port }}
+
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-nodejs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-nodejs
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-nodejs
+    spec:
+      containers:
+        - name: nodejs
+          image: {{ .Values.nodejs.image }}
+          ports:
+            - containerPort: {{ .Values.nodejs.port }}
+          env:
+            - name: NODE_ENV
+              value: {{ .Values.nodejs.env | default "development" }}
+            {{- if .Values.nodejs.env_vars }}
+            {{- range .Values.nodejs.env_vars }}
+            - name: {{ .name }}
+              value: {{ .value }}
+            {{- end }}
+            {{- end }}
+          {{- if .Values.nodejs.command }}
+          command: {{ .Values.nodejs.command }}
+          {{- end }}
+          {{- if .Values.nodejs.args }}
+          args: {{ .Values.nodejs.args }}
+          {{- end }}
+          {{- if .Values.nodejs.volumes }}
+          volumeMounts:
+          {{- range .Values.nodejs.volumes }}
+            - name: {{ .name | default "app-source" }}
+              mountPath: {{ .target }}
+          {{- end }}
+          {{- end }}
+      {{- if .Values.nodejs.volumes }}
+      volumes:
+      {{- range .Values.nodejs.volumes }}
+        - name: {{ .name | default "app-source" }}
+          hostPath:
+            path: {{ .source }}
+            type: Directory
+      {{- end }}
+      {{- end }}
+{{- end }}

@@ -1,0 +1,44 @@
+# Domain configuration
+domain: $DOMAIN
+createIngress: true
+
+# PHP configuration
+php:
+  enabled: true
+  image: php:8.2-fpm-alpine
+  xdebug:
+    enabled: false
+  volumes:
+    - source: $PWD/www/$DOMAIN
+      target: /var/www/html
+
+# Nginx configuration
+nginx:
+  enabled: true
+
+mysql:
+  enabled: false
+  database: app_database
+  user: developer
+  password: secret
+  rootPassword: root
+  storage:
+    size: "5Gi"
+  config:
+    maxConnections: 1000
+    bufferPoolSize: "512M"
+    characterSet: "utf8mb4"
+    collation: "utf8mb4_unicode_ci"
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+
+# SSL configuration
+ssl:
+  enabled: true
+  email: webmaster@$DOMAIN
+  issuer: letsencrypt-staging

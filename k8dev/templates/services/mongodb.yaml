@@ -1,0 +1,162 @@
+{{- if .Values.mongodb.enabled }}
+---
+# PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-mongodb-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.mongodb.persistence.size }}
+  storageClassName: {{ .Values.mongodb.persistence.storageClass }}
+
+---
+# ConfigMap for MongoDB configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-mongodb-config
+data:
+  mongod.conf: |
+    storage:
+      oplogSizeMB: {{ .Values.mongodb.config.oplogSize }}
+    net:
+      bindIp: 0.0.0.0
+      port: {{ .Values.mongodb.port }}
+    security:
+      authorization: {{ .Values.mongodb.config.enableAuthentication | quote }}
+    setParameter:
+      maxConnections: {{ .Values.mongodb.config.maxConnections }}
+
+---
+# Secret for MongoDB credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-mongodb-secret
+type: Opaque
+data:
+  root-password: {{ .Values.mongodb.rootPassword | b64enc }}
+  user-password: {{ .Values.mongodb.password | b64enc }}
+
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-mongodb
+  labels:
+    app: {{ .Release.Name }}-mongodb
+spec:
+  ports:
+    - port: {{ .Values.mongodb.port }}
+      targetPort: mongodb
+      protocol: TCP
+      name: mongodb
+  selector:
+    app: {{ .Release.Name }}-mongodb
+
+---
+# Deployment
+apiVersion: v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-mongodb
+  labels:
+    app: {{ .Release.Name }}-mongodb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-mongodb
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-mongodb
+    spec:
+      containers:
+        - name: mongodb
+          image: {{ .Values.mongodb.image }}
+          ports:
+            - containerPort: {{ .Values.mongodb.port }}
+              name: mongodb
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              value: root
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-mongodb-secret
+                  key: root-password
+            - name: MONGO_INITDB_DATABASE
+              value: {{ .Values.mongodb.database }}
+            # User creation environment variables
+            - name: MONGO_USER
+              value: {{ .Values.mongodb.user }}
+            - name: MONGO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-mongodb-secret
+                  key: user-password
+          resources:
+            {{- toYaml .Values.mongodb.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+            - name: config
+              mountPath: /etc/mongod.conf
+              subPath: mongod.conf
+          livenessProbe:
+            exec:
+              command:
+                - mongosh
+                - --eval
+                - "db.adminCommand('ping')"
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - mongosh
+                - --eval
+                - "db.adminCommand('ping')"
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          startupProbe:
+            exec:
+              command:
+                - mongosh
+                - --eval
+                - "db.adminCommand('ping')"
+            failureThreshold: 30
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-mongodb-data
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-mongodb-config
+
+---
+# Init ConfigMap for database and user setup
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-mongodb-init
+data:
+  init.js: |
+    db = db.getSiblingDB('{{ .Values.mongodb.database }}');
+    db.createUser({
+        user: '{{ .Values.mongodb.user }}',
+        pwd: '{{ .Values.mongodb.password }}',
+        roles: [
+            { role: 'readWrite', db: '{{ .Values.mongodb.database }}' }
+        ]
+    });
+{{- end }}

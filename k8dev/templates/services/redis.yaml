@@ -1,0 +1,85 @@
+{{- if .Values.redis.enabled }}
+---
+# ConfigMap for Redis configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-redis-config
+data:
+  redis.conf: |-
+    requirepass {{ .Values.redis.password }}
+    maxmemory {{ .Values.redis.config.maxmemory | default "128mb" }}
+    maxmemory-policy {{ .Values.redis.config.maxmemoryPolicy | default "allkeys-lru" }}
+    appendonly {{ .Values.redis.config.appendonly | default "yes" }}
+    appendfsync {{ .Values.redis.config.appendfsync | default "everysec" }}
+
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-redis
+spec:
+  selector:
+    app: {{ .Release.Name }}-redis
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379
+
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-redis
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-redis
+    spec:
+      containers:
+        - name: redis
+          image: {{ .Values.redis.image }}
+          command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+          ports:
+            - containerPort: 6379
+          volumeMounts:
+            - name: config
+              mountPath: /usr/local/etc/redis/redis.conf
+              subPath: redis.conf
+          {{- if .Values.redis.persistence.enabled }}
+            - name: data
+              mountPath: /data
+          {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-redis-config
+        {{- if .Values.redis.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-redis-data
+        {{- end }}
+
+{{- if .Values.redis.persistence.enabled }}
+---
+# PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-redis-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.redis.persistence.size | default "1Gi" }}
+  storageClassName: {{ .Values.redis.persistence.storageClass | default "local-path-retain" }}
+{{- end }}
+{{- end }}

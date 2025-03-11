@@ -1,0 +1,35 @@
+{{- if .Values.memcached.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-memcached
+spec:
+  selector:
+    app: {{ .Release.Name }}-memcached
+  ports:
+    - protocol: TCP
+      port: 11211
+      targetPort: 11211
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-memcached
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-memcached
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-memcached
+    spec:
+      containers:
+        - name: memcached
+          image: {{ .Values.memcached.image }}
+          ports:
+            - containerPort: 11211
+{{- end }}

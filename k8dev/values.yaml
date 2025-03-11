@@ -1,0 +1,250 @@
+# Domain configuration
+domain: localhost.dev
+createIngress: true
+# SSL configuration
+ssl:
+  enabled: true
+  email: webmaster@localhost.dev
+  issuer: letsencrypt-staging
+
+# Debug configuration
+debug:
+  enabled: false
+
+# Infrastructure settings
+cert-manager:
+  enabled: true
+  installCRDs: true
+  startupapicheck:
+    enabled: false
+
+ingress-nginx:
+  enabled: true
+  controller:
+    kind: Deployment
+    hostPort:
+      enabled: true
+    config:
+      use-forwarded-headers: "true"
+    containerPort:
+      http: 80
+      https: 443
+    publishService:
+      enabled: false
+    extraArgs:
+      publish-status-address: localhost
+    service:
+      type: ClusterIP
+    tcp:
+      3306: "k8dev-apps/{{ .Release.Name }}-mysql:3306"
+
+php:
+  enabled: false
+  image: php:8.2-fpm-alpine
+  xdebug:
+    enabled: false
+    mode: "debug"
+    clientHost: "host.k8s.internal"
+    clientPort: "9003"
+    idekey: "PHPSTORM"
+    startWithRequest: "yes"
+  config:
+    memoryLimit: "128M"
+    maxExecutionTime: "30"
+    uploadMaxFilesize: "2M"
+    postMaxSize: "8M"
+  fpm:
+    pm: "dynamic"
+    maxChildren: "5"
+    startServers: "2"
+    minSpareServers: "1"
+    maxSpareServers: "3"
+  volumes:
+    - name: app-source
+      source: ./www
+      target: /var/www/html
+
+nginx:
+  enabled: false
+  image: nginx:alpine
+  config: {}
+
+nodejs:
+  enabled: false
+  image: node:alpine
+  port: 3000
+  env: development
+  # Optional command override
+  # command: ["npm"]
+  # args: ["start"]
+  # Optional environment variables
+  env_vars:
+    - name: DB_HOST
+      value: localhost
+    - name: DB_PORT
+      value: "3306"
+  # Optional volume mounts
+  volumes:
+    - name: node-source
+      source: ./node
+      target: /app
+
+mysql:
+  enabled: false
+  hostname: default-mysql
+  version: "8.0"
+  image: mysql:8.0
+  database: app
+  user: developer
+  password: secret
+  rootPassword: root
+  config:
+    maxConnections: 1000
+    bufferPoolSize: "512M"
+    characterSet: "utf8mb4"
+    collation: "utf8mb4_unicode_ci"
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+  storage:
+    path: "/var/lib/local-path-provisioner/data/mysql"
+    size: "5Gi"
+    class: "local-path"
+
+mariadb:
+  enabled: false
+  version: "10.6"
+  database: app
+  user: developer
+  password: secret
+  rootPassword: root
+
+redis:
+  enabled: false
+  image: redis:alpine
+  password: secret
+  persistence:
+    enabled: true
+    size: "1Gi"
+    storageClass: "local-path-retain"
+  config:
+    maxmemory: "128mb"
+    maxmemoryPolicy: "allkeys-lru"  # Options: noeviction, allkeys-lru, volatile-lru, etc.
+    appendonly: "yes"
+    appendfsync: "everysec"  # Options: always, everysec, no
+
+memcached:
+  enabled: false
+  image: memcached:1.6-alpine
+
+elasticsearch:
+  enabled: false
+  image: elasticsearch:8.11.1
+  javaOpts: "-Xmx512m -Xms512m"
+  password: secret
+
+rabbitmq:
+  enabled: false
+  image: rabbitmq:3.12-alpine
+  user: developer
+  password: secret
+
+mongodb:
+  enabled: false
+  image: mongo:latest
+  database: app
+  user: developer
+  password: secret
+  rootPassword: root
+  port: 27017
+  persistence:
+    enabled: true
+    size: "5Gi"
+    storageClass: "local-path-retain"
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "200m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  config:
+    oplogSize: 128
+    maxConnections: 100
+    enableAuthentication: true
+  monitoring:
+    enabled: false
+    interval: 30s
+
+mailhog:
+  enabled: false
+  image: mailhog/mailhog:latest
+  smtpPort: 1025
+  webPort: 8025
+
+minio:
+  enabled: false
+  image: minio/minio:latest
+  rootUser: admin
+  rootPassword: admin
+  port: 9000
+  consolePort: 9001
+  persistence:
+    enabled: true
+    size: "10Gi"
+    storageClass: "local-path-retain"
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  buckets:
+    - name: uploads
+      policy: public
+    - name: private
+      policy: private
+  policies:
+    - name: readwrite
+      statements:
+        - resources: ["arn:aws:s3:::uploads/*"]
+          actions: ["s3:*"]
+
+# Persistence configuration
+persistence:
+  enabled: true
+  size: 1Gi
+
+# Monitoring configuration
+monitoring:
+  enabled: false
+  loki:
+    enabled: false
+    image:
+      repository: grafana/loki
+      tag: 2.9.2-alpine
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: local-path-retain
+  grafana:
+    enabled: false
+    image:
+      repository: grafana/grafana
+      tag: 10.2.0-alpine
+    persistence:
+      enabled: true
+      size: 1Gi
+      storageClass: local-path-retain
+    adminPassword: admin
+    datasources:
+      - name: Loki
+        type: loki
+        url: http://{{ .Release.Name }}-loki:3100
+        access: proxy
+        isDefault: true
