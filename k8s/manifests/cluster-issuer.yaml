@@ -1,4 +1,3 @@
-#file: noinspection KubernetesUnknownResourcesInspection
 {{- if .Values.ssl.enabled }}
 ---
 # cert-manager.io CustomResourceDefinition
@@ -37,5 +36,5 @@ spec:
       - http01:
           ingress:
             class: nginx
-
+---
 {{- end }}
