@@ -1,4 +1,4 @@
-name: Makefile CI
+name: CI
 
 on:
   push:
@@ -16,15 +16,21 @@ jobs:
       - name: Setup environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y make kubectl helm
+          sudo apt-get install -y make kubectl
+          curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+          sudo apt-get update
+          sudo apt-get install -y helm
 
       - name: Install k3d
         run: |
-          wget -q -O - https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+          curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+          k3d --version
 
       - name: Create k3d cluster
         run: |
-          k3d cluster create test-cluster
+          k3d cluster create test-cluster --wait
+          kubectl cluster-info
 
       - name: Install k8dev
         run: make install
@@ -44,4 +50,4 @@ jobs:
         if: always()
         run: |
           make uninstall
-          k3d cluster delete test-cluster
+          k3d cluster delete test-cluster || true
