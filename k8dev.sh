@@ -94,6 +94,7 @@ handle_dependencies() {
     if [[ -f "${chart_lock}" ]]; then
         last_update=$(stat -f %m "${chart_lock}" 2>/dev/null || stat --format=%Y "${chart_lock}")
         current_time=$(date +%s)
+        output info "timestamps: ${last_update} & ${current_time}"
         time_diff=$((current_time - last_update))
 
         if [[ "$force_update" == "true" ]] || [[ $time_diff -gt 86400 ]]; then
