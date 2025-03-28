@@ -92,15 +92,21 @@ handle_dependencies() {
 
     # Check if Chart.lock exists and get its timestamp
     if [[ -f "${chart_lock}" ]]; then
-        last_update=$(stat -f %m "${chart_lock}" 2>/dev/null || stat -c %Y "${chart_lock}")
-        current_time=$(date +%s)
-        time_diff=$((current_time - last_update))
+        last_update=$(stat -f %m "${chart_lock}" 2>/dev/null || stat -c %Y "${chart_lock}" 2>/dev/null)
 
-        if [[ "$force_update" == "true" ]] || [[ $time_diff -gt 86400 ]]; then
-            output info "Updating Helm repositories..."
-            helm repo update || output error "Failed to update Helm repositories"
+        if [[ -n "${last_update}" ]]; then
+            current_time=$(date +%s)
+            time_diff=$((current_time - last_update))
+
+            if [[ "$force_update" == "true" ]] || [[ $time_diff -gt 86400 ]]; then
+                output info "Updating Helm repositories..."
+                helm repo update || output error "Failed to update Helm repositories"
+            else
+                output info "Skipping repository update (less than 24h since last update)"
+            fi
         else
-            output info "Skipping repository update (less than 24h since last update)"
+            output info "Could not determine Chart.lock timestamp, updating repositories..."
+            helm repo update || output error "Failed to update Helm repositories"
         fi
     else
         output info "No Chart.lock found, updating repositories..."
