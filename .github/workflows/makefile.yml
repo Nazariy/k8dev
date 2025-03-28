@@ -38,12 +38,19 @@ jobs:
       - name: Check installation
         run: make check
 
+      - name: Setup Helm repositories
+        run: |
+          helm repo add jetstack https://charts.jetstack.io
+          helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+          helm repo add grafana https://grafana.github.io/helm-charts
+          helm repo update
+
       - name: Test infrastructure
         run: |
           k8dev install
-          k8dev create test.local
-          k8dev start test.local
-          k8dev stop test.local
+          k8dev create www.domain.dev
+          k8dev start www.domain.dev
+          k8dev stop www.domain.dev
           k8dev uninstall
 
       - name: Cleanup
