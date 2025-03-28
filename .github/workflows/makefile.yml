@@ -66,7 +66,7 @@ jobs:
           k8dev create www.domain.dev
           k8dev start www.domain.dev
           k8dev stop www.domain.dev
-          k8dev uninstall
+          echo "yes" | k8dev uninstall
 
       - name: Cleanup
         if: always()
