@@ -62,8 +62,7 @@ jobs:
             kubectl describe pods -n k8dev-system -l app.kubernetes.io/name=ingress-nginx-controller
             exit 1
           }
-          
-          k8dev install
+
           k8dev create www.domain.dev
           k8dev start www.domain.dev
           k8dev stop www.domain.dev
