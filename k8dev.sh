@@ -120,7 +120,7 @@ handle_dependencies() {
 }
 
 infra_install() {
-    output info "Starting installation..."
+    output info "🪁 K8dev Starting installation..."
 
     handle_dependencies true
 
@@ -489,7 +489,7 @@ build_image() {
 
 show_help() {
     output info "${NAME} v${VERSION} - Local Development Environment Manager"
-    output info "Sail through your local development with ease"
+    output info "🪁 Sail through your local development with ease"
     echo
 
     output info "Usage:"

@@ -11,7 +11,7 @@ spec:
   resources:
     requests:
       storage: {{ .Values.mysql.storage.size | default "5Gi" }}
-  storageClassName: local-path-retain
+  storageClassName: local-path
 
 ---
 # Service
@@ -68,7 +68,7 @@ spec:
               value: {{ .Values.mysql.password }}
             - name: MYSQL_ROOT_PASSWORD
               value: {{ .Values.mysql.rootPassword }}
-          resources: # Add resource limits
+          resources:
             {{- toYaml .Values.mysql.resources | nindent 12 }}
           livenessProbe:
             exec:

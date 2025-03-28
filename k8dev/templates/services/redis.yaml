@@ -6,6 +6,7 @@ kind: ConfigMap
 metadata:
   name: {{ .Release.Name }}-redis-config
 data:
+  # noinspection NginxDirectiveValueInspection
   redis.conf: |-
     requirepass {{ .Values.redis.password }}
     maxmemory {{ .Values.redis.config.maxmemory | default "128mb" }}

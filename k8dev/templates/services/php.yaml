@@ -27,11 +27,11 @@ data:
     post_max_size = {{ .Values.php.config.postMaxSize | default "8M" }}
     {{- if .Values.php.xdebug.enabled }}
     [xdebug]
-    xdebug.mode = {{ .Values.php.xdebug.mode | default "debug" }}
-    xdebug.client_host = {{ .Values.php.xdebug.clientHost | default "host.k8s.internal" }}
-    xdebug.client_port = {{ .Values.php.xdebug.clientPort | default "9003" }}
-    xdebug.idekey = {{ .Values.php.xdebug.idekey | default "PHPSTORM" }}
-    xdebug.start_with_request = {{ .Values.php.xdebug.startWithRequest | default "yes" }}
+    xdebug.mode = {{ .Values.php.xdebug.mode | quote }}
+    xdebug.client_host = {{ .Values.php.xdebug.clientHost | quote }}
+    xdebug.client_port = {{ .Values.php.xdebug.clientPort }}
+    xdebug.idekey = {{ .Values.php.xdebug.idekey | quote }}
+    xdebug.start_with_request = {{ .Values.php.xdebug.startWithRequest }}
     {{- end }}
 
 ---
@@ -64,23 +64,11 @@ spec:
               value: {{ .Values.php.fpm.minSpareServers | default "1" | quote }}
             - name: PHP_FPM_PM_MAX_SPARE_SERVERS
               value: {{ .Values.php.fpm.maxSpareServers | default "3" | quote }}
-            {{- if .Values.php.xdebug.enabled }}
-            - name: XDEBUG_MODE
-              value: {{ .Values.php.xdebug.mode | default "debug" }}
-            - name: XDEBUG_CLIENT_HOST
-              value: {{ .Values.php.xdebug.clientHost | default "host.k8s.internal" }}
-            - name: XDEBUG_CLIENT_PORT
-              value: {{ .Values.php.xdebug.clientPort | default "9003" | quote }}
-            - name: XDEBUG_IDEKEY
-              value: {{ .Values.php.xdebug.idekey | default "PHPSTORM" }}
-            - name: XDEBUG_START_WITH_REQUEST
-              value: {{ .Values.php.xdebug.startWithRequest | default "yes" }}
-            {{- end }}
           ports:
             - containerPort: 9000
           volumeMounts:
             - name: php-config
-              mountPath: /usr/local/etc/php/conf.d/custom.ini
+              mountPath: /usr/local/etc/php/conf.d/my.ini
               subPath: php.ini
             {{- if .Values.php.volumes }}
             {{- range .Values.php.volumes }}
