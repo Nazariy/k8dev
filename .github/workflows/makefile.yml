@@ -29,7 +29,12 @@ jobs:
 
       - name: Create k3d cluster
         run: |
-          k3d cluster create test-cluster --wait
+          k3d cluster create test-cluster \
+            --agents 1 \
+            --k3s-arg "--disable=traefik@server:0" \
+            --wait \
+            --timeout 120s \
+            --memory 4G
           kubectl cluster-info
 
       - name: Install k8dev
@@ -47,6 +52,14 @@ jobs:
 
       - name: Test infrastructure
         run: |
+          kubectl get nodes -o wide
+          kubectl get pods -A
+          TIMEOUT=300s k8dev install || {
+            echo "Installation failed, checking pod status..."
+            kubectl get pods -A
+            kubectl describe pods -n k8dev-system -l app.kubernetes.io/name=ingress-nginx-controller
+            exit 1
+          }
           k8dev install
           k8dev create www.domain.dev
           k8dev start www.domain.dev

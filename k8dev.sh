@@ -143,12 +143,12 @@ infra_install() {
 
     # Wait for ingress-nginx to be ready
     echo "Waiting for ingress-nginx deployment..."
-    kubectl wait --for=condition=Available deployment/${INFRA_RELEASE_NAME}-ingress-nginx-controller -n ${SYSTEM_NAMESPACE} --timeout=90s || \
+    kubectl wait --for=condition=Available deployment/${INFRA_RELEASE_NAME}-ingress-nginx-controller -n ${SYSTEM_NAMESPACE} --timeout=180s || \
         output error "Timeout waiting for ingress-nginx"
 
     # Wait for cert-manager to be ready
     echo "Waiting for cert-manager deployment..."
-    kubectl wait --for=condition=Available deployment/${INFRA_RELEASE_NAME}-cert-manager -n ${SYSTEM_NAMESPACE} --timeout=90s || \
+    kubectl wait --for=condition=Available deployment/${INFRA_RELEASE_NAME}-cert-manager -n ${SYSTEM_NAMESPACE} --timeout=180s || \
         output error "Timeout waiting for cert-manager"
 
     output success "Installation completed successfully!"
