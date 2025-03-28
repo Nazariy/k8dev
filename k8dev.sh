@@ -92,16 +92,8 @@ handle_dependencies() {
 
     # Check if Chart.lock exists and get its timestamp
     if [[ -f "${chart_lock}" ]]; then
-        last_update=$(stat -f %m "${chart_lock}" 2>/dev/null || stat -c %Y "${chart_lock}")
-        output info "last_update: ${last_update}"
-
+        last_update=$(stat -f %m "${chart_lock}" 2>/dev/null || stat --format=%Y "${chart_lock}")
         current_time=$(date +%s)
-        output info "current_time: ${current_time}"
-
-        if [[ -z "${last_update}" ]] || [[ -z "${current_time}" ]]; then
-            output error "Failed to get timestamps"
-        fi
-
         time_diff=$((current_time - last_update))
 
         if [[ "$force_update" == "true" ]] || [[ $time_diff -gt 86400 ]]; then
@@ -128,10 +120,6 @@ handle_dependencies() {
 
 infra_install() {
     output info "🪁 K8dev Starting installation..."
-    # Debug output
-    output info "CHART_DIR is: ${CHART_DIR}"
-    [[ -d "${CHART_DIR}" ]] && output info "Chart directory exists" || output error "Chart directory not found"
-    [[ -f "${CHART_DIR}/Chart.yaml" ]] && output info "Chart.yaml exists" || output error "Chart.yaml not found"
 
     handle_dependencies true
 
