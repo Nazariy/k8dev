@@ -520,8 +520,8 @@ show_help() {
 
     output info "Examples:"
     echo "  ${NAME} install                     # Install infrastructure"
-    echo "  ${NAME} create  api.domain.dev      # Create new host"
-    echo "  ${NAME} start   api.domain.dev      # Start host"
+    echo "  ${NAME} create  www.domain.dev      # Create new host"
+    echo "  ${NAME} start   www.domain.dev      # Start host"
     echo "  ${NAME} build   php 8.2             # Build PHP image"
     echo "  ${NAME} build   php 8.2 --no-cache  # Force rebuild ignoring cache"
     echo

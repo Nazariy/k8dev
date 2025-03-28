@@ -7,21 +7,41 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
-
+  test:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: configure
-      run: ./configure
+      - name: Setup environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make kubectl helm
 
-    - name: Install dependencies
-      run: make
+      - name: Install k3d
+        run: |
+          wget -q -O - https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
 
-    - name: Run check
-      run: make check
+      - name: Create k3d cluster
+        run: |
+          k3d cluster create test-cluster
 
-    - name: Run distcheck
-      run: make distcheck
+      - name: Install k8dev
+        run: make install
+
+      - name: Check installation
+        run: make check
+
+      - name: Test infrastructure
+        run: |
+          k8dev install
+          k8dev create test.local
+          k8dev start test.local
+          k8dev stop test.local
+          k8dev uninstall
+
+      - name: Cleanup
+        if: always()
+        run: |
+          make uninstall
+          k3d cluster delete test-cluster

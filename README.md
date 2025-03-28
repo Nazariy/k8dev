@@ -132,7 +132,7 @@ Edit the `values.yaml` in your host directory to configure various services:
 
 #### Web Application
 ```yaml
-domain: api.domain.dev
+domain: www.domain.dev
 
 php:
   enabled: true
