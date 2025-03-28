@@ -86,18 +86,9 @@ handle_dependencies() {
     local force_update=${1:-false}
     local chart_lock="${CHART_DIR}/Chart.lock"
     local chart_yaml="${CHART_DIR}/Chart.yaml"
-    local last_update
-    local current_time
-    local time_diff
 
-    # Check if Chart.lock exists and get its timestamp
     if [[ -f "${chart_lock}" ]]; then
-        last_update=$(stat -f %m "${chart_lock}" 2>/dev/null || stat --format=%Y "${chart_lock}")
-        current_time=$(date +%s)
-        output info "timestamps: ${last_update} & ${current_time}"
-        time_diff=$((current_time - last_update))
-
-        if [[ "$force_update" == "true" ]] || [[ $time_diff -gt 86400 ]]; then
+        if "$force_update" || find "${chart_lock}" -mtime +0 >/dev/null 2>&1; then
             output info "Updating Helm repositories..."
             helm repo update || output error "Failed to update Helm repositories"
         else
