@@ -86,37 +86,36 @@ handle_dependencies() {
     local force_update=${1:-false}
     local chart_lock="${CHART_DIR}/Chart.lock"
     local chart_yaml="${CHART_DIR}/Chart.yaml"
-    local last_update_mac
-    local last_update_linux
     local last_update
     local current_time
     local time_diff
 
+    # Check if Chart.lock exists and get its timestamp
     if [[ -f "${chart_lock}" ]]; then
-        last_update_mac=$(stat -f %m "${chart_lock}" 2>/dev/null)
-        last_update_linux=$(stat -c %Y "${chart_lock}" 2>/dev/null)
-        last_update=${last_update_mac:-$last_update_linux}
+        last_update=$(stat -f %m "${chart_lock}" 2>/dev/null || stat -c %Y "${chart_lock}")
+        output info "last_update: ${last_update}"
 
-        if [[ -n "${last_update}" ]]; then
-            current_time=$(date +%s)
-            time_diff=$((current_time - last_update))
+        current_time=$(date +%s)
+        output info "current_time: ${current_time}"
 
-            if [[ "$force_update" == "true" ]] || [[ $time_diff -gt 86400 ]]; then
-                output info "Updating Helm repositories..."
-                helm repo update || output error "Failed to update Helm repositories"
-            else
-                output info "Skipping repository update (less than 24h since last update)"
-            fi
-        else
-            output info "Could not determine Chart.lock timestamp, updating repositories..."
+        if [[ -z "${last_update}" ]] || [[ -z "${current_time}" ]]; then
+            output error "Failed to get timestamps"
+        fi
+
+        time_diff=$((current_time - last_update))
+
+        if [[ "$force_update" == "true" ]] || [[ $time_diff -gt 86400 ]]; then
+            output info "Updating Helm repositories..."
             helm repo update || output error "Failed to update Helm repositories"
+        else
+            output info "Skipping repository update (less than 24h since last update)"
         fi
     else
         output info "No Chart.lock found, updating repositories..."
         helm repo update || output error "Failed to update Helm repositories"
     fi
 
-    if [ ! -d "${CHART_DIR}/charts" ] || [ ! -f "${chart_lock}" ]; then
+    if [ ! -d "${CHART_DIR}/charts" ] || [ -z "$(ls -A "${CHART_DIR}/charts" 2>/dev/null)" ] || [ ! -f "${chart_lock}" ]; then
         output info "Initial dependency build required..."
         helm dependency build "${CHART_DIR}" || output error "Failed to build dependencies"
     elif [ "${chart_yaml}" -nt "${chart_lock}" ]; then
@@ -129,6 +128,10 @@ handle_dependencies() {
 
 infra_install() {
     output info "🪁 K8dev Starting installation..."
+    # Debug output
+    output info "CHART_DIR is: ${CHART_DIR}"
+    [[ -d "${CHART_DIR}" ]] && output info "Chart directory exists" || output error "Chart directory not found"
+    [[ -f "${CHART_DIR}/Chart.yaml" ]] && output info "Chart.yaml exists" || output error "Chart.yaml not found"
 
     handle_dependencies true
 
