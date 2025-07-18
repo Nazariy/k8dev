@@ -3,6 +3,16 @@
 # Set strict error handling
 set -euo pipefail
 
+# Load .env if present
+if [[ -f .env ]]; then
+    # shellcheck disable=SC1091
+    source .env
+fi
+
+# Set PROJECT_ROOT if not already set
+PROJECT_ROOT="${PROJECT_ROOT:-$(pwd)}"
+export PROJECT_ROOT
+
 # Variables
 VERSION="1.0.0"
 NAME="k8dev"
@@ -14,8 +24,6 @@ PROJECT_ROOT=$(pwd)
 CHART_DIR="${PROJECT_ROOT}/${NAME}"
 
 RUNNING_HOSTS_FILE="${CHART_DIR}/.hosts"
-
-export PROJECT_ROOT
 
 output() {
     # Define colors locally within the function

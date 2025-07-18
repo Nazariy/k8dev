@@ -1,5 +1,7 @@
 # K8Dev - Kubernetes Local Development Environment Manager
 
+![MIT License](https://img.shields.io/badge/license-MIT-green)
+
 **K8Dev** is a tool for managing multiple local development environments using Kubernetes (Rancher Desktop).
 It allows you to run different projects with various PHP versions and configurations simultaneously.
 
@@ -37,6 +39,17 @@ It allows you to run different projects with various PHP versions and configurat
     ```bash
     make check
     ```
+
+## Quick Start
+
+```bash
+git clone https://github.com/Nazariy/k8dev.git
+cd k8dev
+make install
+k8dev install
+k8dev create example.dev
+k8dev start example.dev
+```
 
 ## Usage
 
@@ -91,7 +104,7 @@ k8dev debug
 ### Accessing Services
 
 To add new domain to your local environment for example `www.domain.dev` use this command:
-```shell
+```bash
 k8dev create www.domain.dev
 ```
 
